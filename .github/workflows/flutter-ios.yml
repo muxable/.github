@@ -66,8 +66,10 @@ jobs:
           flutter pub get
 
           # configure codesigning
-          app-store-connect fetch-signing-files $(xcode-project detect-bundle-id) --platform IOS --type IOS_APP_STORE --create
-          xcode-project use-profiles --export-options-plist=$RUNNER_TEMP/export_options.plist --archive-method=app-store
+          # only look at the app's project: flutter pub get can place plugin example
+          # projects under build/ios/SourcePackages.
+          app-store-connect fetch-signing-files $(xcode-project detect-bundle-id --project "ios/*.xcodeproj") --platform IOS --type IOS_APP_STORE --create
+          xcode-project use-profiles --project "ios/*.xcodeproj" --export-options-plist=$RUNNER_TEMP/export_options.plist --archive-method=app-store
           keychain initialize -p $RUNNER_TEMP/build.keychain
           keychain add-certificates -p $RUNNER_TEMP/build.keychain
 
