@@ -26,7 +26,8 @@ on:
 
 jobs:
   ipa:
-    runs-on: macos-latest
+    # macos-latest only has Xcode 26; this image has the iOS 27 SDK.
+    runs-on: xcode-27
     env:
       APP_STORE_CONNECT_ISSUER_ID: 863d4663-9217-4c36-9caa-e7b2201ec4f1
       APP_STORE_CONNECT_KEY_IDENTIFIER: PQPDACRFT7
@@ -36,21 +37,24 @@ jobs:
       name: ${{ inputs.environment-name }}
       url: ${{ inputs.environment-url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: paulhatch/semantic-version@v5.4.0
+      - uses: paulhatch/semantic-version@v6.0.2
         id: semantic
         with:
           change_path: ${{ inputs.working-directory }}
           namespace: ${{ inputs.working-directory != '.' && inputs.working-directory || '' }}
+          # keep the v5 defaults; v6 switched to conventional commits.
+          major_pattern: "(MAJOR)"
+          minor_pattern: "(MINOR)"
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           architecture: x64
@@ -86,7 +90,7 @@ jobs:
           keychain delete -p $RUNNER_TEMP/build.keychain
           security default-keychain -s login.keychain
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release.ipa
           path: ${{ inputs.working-directory }}/build/ios/ipa

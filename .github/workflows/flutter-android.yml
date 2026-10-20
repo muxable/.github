@@ -35,21 +35,24 @@ jobs:
       name: ${{ inputs.environment-name }}
       url: ${{ inputs.environment-url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: paulhatch/semantic-version@v5.4.0
+      - uses: paulhatch/semantic-version@v6.0.2
         id: semantic
         with:
           change_path: ${{ inputs.working-directory }}
           namespace: ${{ inputs.working-directory != '.' && inputs.working-directory || '' }}
+          # keep the v5 defaults; v6 switched to conventional commits.
+          major_pattern: "(MAJOR)"
+          minor_pattern: "(MINOR)"
 
       - run: echo $UPLOAD_KEYSTORE | base64 -d > ${{ inputs.working-directory }}/android/app/upload-keystore.jks
         env:
           UPLOAD_KEYSTORE: ${{ secrets.UPLOAD_KEYSTORE }}
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: "zulu"
           java-version: "17"
@@ -69,19 +72,19 @@ jobs:
           KEY_ALIAS: upload
           STORE_FILE: upload-keystore.jks
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: app-armeabi-v7a-release.apk
           path: ${{ inputs.working-directory }}/build/app/outputs/apk/release/app-armeabi-v7a-release.apk
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: app-arm64-v8a-release.apk
           path: ${{ inputs.working-directory }}/build/app/outputs/apk/release/app-arm64-v8a-release.apk
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: app-x86_64-release.apk
           path: ${{ inputs.working-directory }}/build/app/outputs/apk/release/app-x86_64-release.apk
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: app-release.aab
           path: ${{ inputs.working-directory }}/build/app/outputs/bundle/release/app-release.aab
