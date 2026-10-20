@@ -93,4 +93,4 @@ jobs:
 
       - if: ${{ inputs.publish }}
         working-directory: ${{ inputs.working-directory }}
-        run: app-store-connect publish --testflight ${{ github.event_name == 'release' && '--app-store' || '' }} --whats-new "${{ inputs.whats-new }}"
+        run: app-store-connect publish ${{ github.event_name == 'release' && '--app-store' || '--testflight' }} --whats-new "${{ inputs.whats-new }}"
