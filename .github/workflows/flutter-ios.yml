@@ -58,7 +58,24 @@ jobs:
         with:
           python-version: "3.11"
           architecture: x64
-      - run: pip3 install codemagic-cli-tools
+      - name: install codemagic-cli-tools
+        run: |
+          pip3 install codemagic-cli-tools
+          # Xcode 27's altool logs a benign "ERROR: ... CDUploaderStateInfoResumeFilePath" line on
+          # successful uploads. codemagic only ignores ERROR lines when "UPLOAD SUCCEEDED" is on the
+          # first line of output (re.match), so it reports a failed publish. Search the whole output.
+          # Non-zero exits, product errors and ERROR lines without "UPLOAD SUCCEEDED" still fail.
+          python3 - <<'EOF'
+          import importlib.util, pathlib
+          p = pathlib.Path(importlib.util.find_spec("codemagic.models.altool.altool").origin)
+          s = p.read_text()
+          old = 're.match(".*UPLOAD SUCCEEDED.*", stdout)'
+          if old in s:
+              p.write_text(s.replace(old, 're.search("UPLOAD SUCCEEDED", stdout)'))
+              print(f"Patched {p}")
+          else:
+              print(f"::warning::codemagic altool success check changed upstream, not patching {p}")
+          EOF
       - uses: subosito/flutter-action@v2
         with:
           channel: "stable"
