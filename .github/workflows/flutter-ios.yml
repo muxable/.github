@@ -13,6 +13,11 @@ on:
         type: string
       environment-url:
         type: string
+      bundle-id:
+        description: 'Bundle ID of the app. Detected from the Xcode project if not set.'
+        required: false
+        default: ""
+        type: string
       publish:
         description: 'Publish to App Store'
         required: false
@@ -56,8 +61,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
-          architecture: x64
+          python-version: "3.13"
       - name: install codemagic-cli-tools
         run: |
           pip3 install codemagic-cli-tools
@@ -79,17 +83,25 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: "stable"
+          cache: true
 
       - name: flutter build ipa
         working-directory: ${{ inputs.working-directory }}
         run: |
-          pod repo update
+          # apps using Swift Package Manager have no Podfile.
+          if [ -f ios/Podfile ]; then
+            pod repo update
+          fi
           flutter pub get
 
           # configure codesigning
           # only look at the app's project: flutter pub get can place plugin example
           # projects under build/ios/SourcePackages.
-          app-store-connect fetch-signing-files $(xcode-project detect-bundle-id --project "ios/*.xcodeproj") --platform IOS --type IOS_APP_STORE --create
+          BUNDLE_ID="${{ inputs.bundle-id }}"
+          if [ -z "$BUNDLE_ID" ]; then
+            BUNDLE_ID=$(xcode-project detect-bundle-id --project "ios/*.xcodeproj")
+          fi
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --platform IOS --type IOS_APP_STORE --create
           xcode-project use-profiles --project "ios/*.xcodeproj" --export-options-plist=$RUNNER_TEMP/export_options.plist --archive-method=app-store
           keychain initialize -p $RUNNER_TEMP/build.keychain
           keychain add-certificates -p $RUNNER_TEMP/build.keychain

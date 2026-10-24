@@ -56,16 +56,30 @@ jobs:
         with:
           distribution: "zulu"
           java-version: "17"
+          cache: gradle
+          cache-dependency-path: |
+            ${{ inputs.working-directory }}/android/**/*.gradle*
+            ${{ inputs.working-directory }}/android/**/gradle-wrapper.properties
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          cache: true
 
-      - name: flutter build apk
+      - name: flutter build appbundle
         working-directory: ${{ inputs.working-directory }}
         run: |
           flutter pub get
           flutter build appbundle --release --build-name=${{ steps.semantic.outputs.version }}
-          flutter build apk --split-per-abi --release --build-name=${{ steps.semantic.outputs.version }}
+
+          # build an installable universal apk from the aab instead of rebuilding with gradle.
+          curl -fsSL -o $RUNNER_TEMP/bundletool.jar https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+          echo "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29  $RUNNER_TEMP/bundletool.jar" | sha256sum -c -
+          java -jar $RUNNER_TEMP/bundletool.jar build-apks --mode=universal \
+            --bundle=build/app/outputs/bundle/release/app-release.aab --output=$RUNNER_TEMP/app.apks \
+            "--ks=android/app/$STORE_FILE" "--ks-pass=pass:$STORE_PASSWORD" "--ks-key-alias=$KEY_ALIAS" "--key-pass=pass:$KEY_PASSWORD"
+          unzip -o $RUNNER_TEMP/app.apks universal.apk -d $RUNNER_TEMP
+          mkdir -p build/app/outputs/apk/release
+          mv $RUNNER_TEMP/universal.apk build/app/outputs/apk/release/app-release.apk
         env:
           STORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
@@ -74,16 +88,8 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: app-armeabi-v7a-release.apk
-          path: ${{ inputs.working-directory }}/build/app/outputs/apk/release/app-armeabi-v7a-release.apk
-      - uses: actions/upload-artifact@v7
-        with:
-          name: app-arm64-v8a-release.apk
-          path: ${{ inputs.working-directory }}/build/app/outputs/apk/release/app-arm64-v8a-release.apk
-      - uses: actions/upload-artifact@v7
-        with:
-          name: app-x86_64-release.apk
-          path: ${{ inputs.working-directory }}/build/app/outputs/apk/release/app-x86_64-release.apk
+          name: app-release.apk
+          path: ${{ inputs.working-directory }}/build/app/outputs/apk/release/app-release.apk
       - uses: actions/upload-artifact@v7
         with:
           name: app-release.aab
@@ -95,6 +101,6 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: ${{ inputs.package-name }}
           releaseFiles: ${{ inputs.working-directory }}/build/app/outputs/bundle/release/app-release.aab
-          track: ${{ github.event_name == 'release' && 'production' || 'internal' }}
+          tracks: ${{ github.event_name == 'release' && 'production' || 'internal' }}
           status: ${{ github.event_name == 'release' && 'completed' || 'draft' }}
           mappingFile: ${{ inputs.working-directory }}/build/app/outputs/mapping/release/mapping.txt
