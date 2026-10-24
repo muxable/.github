@@ -84,7 +84,15 @@ jobs:
           flutter build ipa --release --build-name=${{ steps.semantic.outputs.version }} --build-number=$(date +%Y%m%d%H%M) --export-options-plist=$RUNNER_TEMP/export_options.plist
           
           # upload debugging symbols
-          ./ios/Pods/FirebaseCrashlytics/upload-symbols -gsp ./ios/Runner/GoogleService-Info.plist -p ios ./build || true
+          # firebase_crashlytics comes from CocoaPods or Swift Package Manager.
+          UPLOAD_SYMBOLS=$(find ios/Pods build/ios/SourcePackages ~/Library/Developer/Xcode/DerivedData \
+            -path '*Crashlytics/upload-symbols' -type f 2>/dev/null | head -1)
+          if [ -n "$UPLOAD_SYMBOLS" ]; then
+            "$UPLOAD_SYMBOLS" -gsp ./ios/Runner/GoogleService-Info.plist -p ios ./build/ios/archive/Runner.xcarchive/dSYMs ||
+              echo "::warning::Crashlytics dSYM upload failed"
+          else
+            echo "::warning::Crashlytics upload-symbols not found, skipping dSYM upload"
+          fi
 
           # remove keychain
           keychain delete -p $RUNNER_TEMP/build.keychain
@@ -94,6 +102,11 @@ jobs:
         with:
           name: release.ipa
           path: ${{ inputs.working-directory }}/build/ios/ipa
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dSYMs
+          path: ${{ inputs.working-directory }}/build/ios/archive/Runner.xcarchive/dSYMs
 
       - if: ${{ inputs.publish }}
         working-directory: ${{ inputs.working-directory }}
