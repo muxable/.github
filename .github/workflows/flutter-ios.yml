@@ -71,8 +71,9 @@ jobs:
           # Non-zero exits, product errors and ERROR lines without "UPLOAD SUCCEEDED" still fail.
           python3 - <<'EOF'
           import importlib.util, pathlib
-          p = pathlib.Path(importlib.util.find_spec("codemagic.models.altool.altool").origin)
-          s = p.read_text()
+          spec = importlib.util.find_spec("codemagic.models.altool.altool")
+          p = pathlib.Path(spec.origin) if spec and spec.origin else None
+          s = p.read_text() if p else ""
           old = 're.match(".*UPLOAD SUCCEEDED.*", stdout)'
           if old in s:
               p.write_text(s.replace(old, 're.search("UPLOAD SUCCEEDED", stdout)'))
@@ -87,6 +88,8 @@ jobs:
 
       - name: flutter build ipa
         working-directory: ${{ inputs.working-directory }}
+        env:
+          BUNDLE_ID_INPUT: ${{ inputs.bundle-id }}
         run: |
           # apps using Swift Package Manager have no Podfile.
           if [ -f ios/Podfile ]; then
@@ -97,7 +100,7 @@ jobs:
           # configure codesigning
           # only look at the app's project: flutter pub get can place plugin example
           # projects under build/ios/SourcePackages.
-          BUNDLE_ID="${{ inputs.bundle-id }}"
+          BUNDLE_ID="$BUNDLE_ID_INPUT"
           if [ -z "$BUNDLE_ID" ]; then
             BUNDLE_ID=$(xcode-project detect-bundle-id --project "ios/*.xcodeproj")
           fi
