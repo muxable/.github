@@ -18,6 +18,11 @@ on:
         required: false
         default: ""
         type: string
+      beta-group:
+        description: 'TestFlight beta group to add builds to on non-release publishes. Not added to any group if not set.'
+        required: false
+        default: ""
+        type: string
       publish:
         description: 'Publish to App Store'
         required: false
@@ -142,4 +147,6 @@ jobs:
 
       - if: ${{ inputs.publish }}
         working-directory: ${{ inputs.working-directory }}
-        run: app-store-connect publish ${{ github.event_name == 'release' && '--app-store' || '--testflight' }} --whats-new "${{ inputs.whats-new }}"
+        env:
+          BETA_GROUP: ${{ github.event_name != 'release' && inputs.beta-group || '' }}
+        run: app-store-connect publish ${{ github.event_name == 'release' && '--app-store' || '--testflight' }} --whats-new "${{ inputs.whats-new }}" ${BETA_GROUP:+--beta-group "$BETA_GROUP"}
